@@ -20,11 +20,15 @@ BROWSER := python -c "$$BROWSER_PYSCRIPT"
 DOCKER_BUILDKIT=1
 SHELL=/bin/bash
 CWD=$(shell pwd)
+CMD ?=bash
 PULL ?=True
 DEV ?=y
 CHECK_CHANGED_SCRIPT=$(CWD)/changed_from_main.py
 CONTAINER_CMD?=docker
 SAVEPOINT_SETUP=pip3 list
+
+PORT ?=8888
+APP_NAME ?=Pace_dev
 
 VOLUMES ?=
 BUILD_FLAGS ?=
@@ -91,12 +95,18 @@ _force_build:
 
 enter:
 	docker run --rm -it \
-		--network host \
 		$(VOLUMES) \
-	$(PACE_IMAGE) bash
+		-p=$(PORT):$(PORT) \
+		--name="$(APP_NAME)" \
+	$(PACE_IMAGE) $(CMD)
 
 dev:
 	DEV=y $(MAKE) enter
+
+notebook:
+	CMD="jupyter notebook --ip 0.0.0.0 --no-browser --allow-root --notebook-dir=/pace/examples/notebooks" \
+	DEV=y \
+	$(MAKE) enter
 
 test_util:
 	if [ $(shell $(CHECK_CHANGED_SCRIPT) util) != false ]; then \
@@ -115,7 +125,7 @@ dependencies.svg: dependencies.dot
 	dot -Tsvg $< -o $@
 
 .PHONY: constraints.txt
-constraints.txt: driver/setup.py dsl/setup.py fv3core/setup.py physics/setup.py util/setup.py stencils/setup.py util/requirements.txt requirements_docs.txt requirements_lint.txt external/gt4py/setup.cfg requirements_dev.txt
+constraints.txt: driver/setup.py ndsl/setup.py pyFV3/setup.py pySHiELD/setup.py requirements_docs.txt requirements_lint.txt external/gt4py/setup.cfg requirements_dev.txt
 	pip-compile $^ --output-file constraints.txt
 	sed -i.bak '/\@ git+https/d' constraints.txt
 	rm -f constraints.txt.bak
@@ -142,8 +152,8 @@ test_mpi_54rank:
 	mpirun -n 54 $(MPIRUN_ARGS) python3 -m mpi4py -m pytest tests/mpi_54rank
 
 driver_savepoint_tests_mpi: build
-	TARGET=driver $(MAKE) get_test_data
-	$(CONTAINER_CMD) $(CONTAINER_FLAGS) bash -c "$(SAVEPOINT_SETUP) && cd $(PACE_PATH) && $(MPIRUN_CALL) python -m mpi4py -m pytest --maxfail=1 --data_path=$(EXPERIMENT_DATA_RUN)/driver/ $(TEST_ARGS) $(PHYSICS_THRESH_ARGS) -m parallel $(PACE_PATH)/physics/tests/savepoint"
+	TARGET=pace $(MAKE) get_test_data
+	$(CONTAINER_CMD) $(CONTAINER_FLAGS) bash -c "$(SAVEPOINT_SETUP) && cd $(PACE_PATH) && $(MPIRUN_CALL) python -m mpi4py -m pytest --maxfail=1 --data_path=$(EXPERIMENT_DATA_RUN)/pace/ $(TEST_ARGS) $(PHYSICS_THRESH_ARGS) -m parallel $(PACE_PATH)/physics/tests/savepoint"
 
 docs: ## generate Sphinx HTML documentation
 	$(MAKE) -C docs html

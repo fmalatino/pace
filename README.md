@@ -1,4 +1,3 @@
-[![CircleCI][circleci-shield]][circleci-url]
 [![Contributors][contributors-shield]][contributors-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
@@ -6,17 +5,36 @@
 
 # Pace
 
-Pace is an implementation of the FV3GFS / SHiELD atmospheric model developed by NOAA/GFDL using the GT4Py domain-specific language in Python. The model can be run on a laptop using Python-based backend or on thousands of heterogeneous compute nodes of a large supercomputer.
+Pace is an implementation of the FV3GFS / SHiELD atmospheric model developed by NOAA/GFDL using the [NDSL](https://github.com/NOAA-GFDL/NDSL) middleware in Python, itself based on [GT4Py](https://github.com/GridTools/gt4py) and [DaCe](https://github.com/spcl/dace). The model can be run on a laptop using Python-based backend or on thousands of heterogeneous compute nodes of a large supercomputer.
 
-Full Sphinx documentation can be found at [https://ai2cm.github.io/pace/](https://ai2cm.github.io/pace/).
+🚧 **WARNING** This repo is under active development - supported features and procedures can change rapidly and without notice. 🚧
 
-**WARNING** This repo is under active development - supported features and procedures can change rapidly and without notice.
+The repository model code is split between [pyFV3](https://github.com/NOAA-GFDL/pyFV3) for the dynamical core and [pySHiELD](https://github.com/NOAA-GFDL/pySHiELD) for the physics parametrization. A full depencies looks like the following:
+
+```mermaid
+flowchart TD
+GT4Py.cartesian --> |Stencil DSL|NDSL
+DaCe  --> |Full program opt|NDSL
+NDSL --> pyFV3
+NDSL --> pySHiELD
+pyFV3 --> |Dynamics|Pace
+pySHiELD --> |Physics|Pace
+
+```
 
 ## Quickstart - bare metal
 
 ### Build
 
-Pace requires GCC > 9.2, MPI, and Python 3.8 on your system, and CUDA is required to run with a GPU backend. You will also need the headers of the boost libraries in your `$PATH` (boost itself does not need to be installed).
+Pace requires:
+
+- GCC > 9.2
+- MPI
+- Python 3.8.
+
+For GPU backends CUDA and/or ROCm is required depending on the targeted hardware.
+
+For GT stencils backends, you will also need the headers of the boost libraries in your `$PATH`. This could be down like this.
 
 ```shell
 cd BOOST/ROOT
@@ -30,7 +48,7 @@ export BOOST_ROOT=BOOST/ROOT/boost_1_79_0
 When cloning Pace you will need to update the repository's submodules as well:
 
 ```shell
-git clone --recursive https://github.com/ai2cm/pace.git
+git clone --recursive https://github.com/NOAA-GFDL/pace.git
 ```
 
 or if you have already cloned the repository:
@@ -39,7 +57,7 @@ or if you have already cloned the repository:
 git submodule update --init --recursive
 ```
 
-We recommend creating a python `venv` or conda environment specifically for Pace.
+We recommend creating a python `venv` or `conda` environment specifically for Pace.
 
 ```shell
 python3 -m venv venv_name
@@ -59,17 +77,17 @@ Shell scripts to install Pace on specific machines such as Gaea can be found in 
 With the environment activated, you can run an example baroclinic test case with the following command:
 
 ```shell
-mpirun -n 6 python3 -m pace.driver.run driver/examples/configs/baroclinic_c12.yaml
+mpirun -n 6 python3 -m pace.run examples/configs/baroclinic_c12.yaml
 
 # or with oversubscribe if you do not have at least 6 cores
-mpirun -n 6 --oversubscribe python3 -m pace.driver.run driver/examples/configs/baroclinic_c12.yaml
+mpirun -n 6 --oversubscribe python3 -m pace.run examples/configs/baroclinic_c12.yaml
 ```
 
-After the run completes, you will see an output direcotry `output.zarr`. An example to visualize the output is provided in `driver/examples/plot_output.py`. See the [driver example](driver/examples/README.md) section for more details.
+After the run completes, you will see an output direcotry `output.zarr`. An example to visualize the output is provided in `examples/plot_output.py`. See the [driver example](examples/README.md) section for more details.
 
 ### Environment variable configuration
 
-- `PACE_CONSTANTS`: Pace is bundled with various constants (see _util/pace/util/constants.py_).
+- `PACE_CONSTANTS`: Pace is bundled with various constants.
   - `GFDL` NOAA's FV3 dynamical core constants (original port)
   - `GFS` Constant as defined in NOAA GFS
   - `GEOS`  Constant as defined in GEOS v13
@@ -98,32 +116,62 @@ make build
 
 ```shell
 make dev
-mpirun --mca btl_vader_single_copy_mechanism none -n 6 python3 -m pace.driver.run /pace/driver/examples/configs/baroclinic_c12.yaml
+mpirun --mca btl_vader_single_copy_mechanism none -n 6 python3 -m pace.run /examples/configs/baroclinic_c12.yaml
 ```
 
-## Running translate tests
+## History
 
-See the [translate tests](stencils/pace/stencils/testing/README.md) section for more information.
+This repository was first developed at [AI2](https://github.com/ai2cm/pace) and the institute conserves an archived copy with the latest state before the NOAA took over.
 
-## Repository structure
+[contributors-shield]: https://img.shields.io/github/contributors/NOAA-GFDL/pace.svg
+[contributors-url]: https://github.com/NOAA-GFDL/pace/graphs/contributors
+[stars-shield]: https://img.shields.io/github/stars/NOAA-GFDL/pace.svg
+[stars-url]: https://github.com/NOAA-GFDL/pace/stargazers
+[issues-shield]: https://img.shields.io/github/issues/NOAA-GFDL/pace.svg
+[issues-url]: https://github.com/NOAA-GFDL/pace/issues
+[license-shield]: https://img.shields.io/github/license/NOAA-GFDL/pace.svg
+[license-url]: https://github.com/NOAA-GFDL/pace/blob/main/LICENSE.md
 
-The top-level directory contains the main components of pace such as the dynamical core, the physical parameterizations and utilities.
+## Running pace in containers
+Docker images exist in the Github Container Registry associated with the NOAA-GFDL organization.
+These images are publicly accessible and can be used to run a Docker container to work with pace.
+The following are directions on how to setup the pace conda environment interactively in a container.
 
-This git repository is laid out as a mono-repo, containing multiple independent projects. Because of this, it is important not to introduce unintended dependencies between projects. The graph below indicates a project depends on another by an arrow pointing from the parent project to its dependency. For example, the tests for fv3core should be able to run with only files contained under the fv3core and util projects, and should not access any files in the driver or physics packages. Only the top-level tests in Pace are allowed to read all files.
+The latest images can be pulled with the Docker as shown below or
+with any other container management tools:
 
-![Graph of interdependencies of Pace modules, generated from dependences.dot](./dependencies.svg)
+```shell
+docker pull ghcr.io/noaa-gfdl/pace_mpich:3.8
+```
+for MPICH installation of MPI; and
+```shell
+docker pull ghcr.io/noaa-gfdl/pace_openmpi:3.8
+```
+for OpenMPI installation of MPI.
 
-## ML emulation
+If permission issues arise during the pull, a Github personal token
+may be required.  The steps to create a personal token is found
+[here](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
-An example of integration of an ML model replacing the microphysics parametrization is available on the `feature/microphysics-emulator` branch.
+Once the token has been generated, the image can be pulled for example with with:
+```shell
+docker login --username GITHUB_USERNAME --password TOKEN
+docker pull ghcr.io/noaa-gfdl/pace_mpich:3.8
+```
 
-[circleci-shield]: https://dl.circleci.com/status-badge/img/gh/ai2cm/pace/tree/main.svg?style=svg
-[circleci-url]: https://dl.circleci.com/status-badge/redirect/gh/ai2cm/pace/tree/main
-[contributors-shield]: https://img.shields.io/github/contributors/ai2cm/pace.svg
-[contributors-url]: https://github.com/ai2cm/pace/graphs/contributors
-[stars-shield]: https://img.shields.io/github/stars/ai2cm/pace.svg
-[stars-url]: https://github.com/ai2cm/pace/stargazers
-[issues-shield]: https://img.shields.io/github/issues/ai2cm/pace.svg
-[issues-url]: https://github.com/ai2cm/pace/issues
-[license-shield]: https://img.shields.io/github/license/ai2cm/pace.svg
-[license-url]: https://github.com/ai2cm/pace/blob/main/LICENSE.md
+Any container management tools compatible with Docker images can be used
+to run the container interactively from the pulled image.
+With Docker, the following command runs the container interactively.
+```shell
+docker run -it pace_mpich:3.8
+```
+
+In the container, the default `base` conda environment is already activated.
+The `pace` conda environment can be created by following the steps below:
+
+```shell
+git clone --recursive -b develop https://github.com/NOAA-GFDL/pace.git pace
+cd pace
+cp /home/scripts/setup_env.sh . && chmod +x setup_env.sh
+source ./setup_env.sh
+```
