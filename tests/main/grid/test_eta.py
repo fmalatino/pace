@@ -106,14 +106,14 @@ def test_set_hybrid_pressure_coefficients_nofile():
     with open(config_file, "r") as f:
         yaml_config = yaml.safe_load(f)
 
-    del yaml_config["grid_config"]["config"]["eta_file"]
+    yaml_config["grid_config"]["config"]["eta_file"] = ""
 
     try:
         driver_config = DriverConfig.from_dict(yaml_config)
         driver_config.comm_config = NullCommConfig(rank=0, total_ranks=6)
         driver = Driver(config=driver_config)
     except Exception as error:
-        if str(error) == "eta file not specified":
+        if str(error) == "eta file does not exist":
             pytest.xfail("testing eta file not specified")
         else:
             pytest.fail(f"ERROR {error}")
