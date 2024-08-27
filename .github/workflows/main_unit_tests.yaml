@@ -48,6 +48,13 @@ jobs:
             pip3 install --upgrade pip setuptools wheel
             pip3 install -r requirements_dev.txt -c constraints.txt
 
+        - name: prepare input files
+          run: |
+            cd ${GITHUB_WORKSPACE}/pace
+            mkdir tests/main/input
+            python3 examples/generate_eta_files.py
+            mv *eta*.nc tests/main/input
+
         - name: run tests
           run: |
             cd ${GITHUB_WORKSPACE}/pace
